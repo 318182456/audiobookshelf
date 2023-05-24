@@ -5,11 +5,11 @@ name: Build and Push Docker Image
 on:
   # Allows you to run workflow manually from Actions tab
   workflow_dispatch:
-    inputs:
-      tags:
-        description: 'Docker Tag'
-        required: true
-        default: 'latest'
+#     inputs:
+#       tags:
+#         description: 'Docker Tag'
+#         required: true
+#         default: 'latest'
   push:
     branches: [main,master]
     tags:
@@ -34,7 +34,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: advplyr/audiobookshelf,ghcr.io/${{ github.repository_owner }}/audiobookshelf
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/audiobookshelf,ghcr.io/${{ github.repository_owner }}/audiobookshelf
           tags: |
             type=edge,branch=master
             type=semver,pattern={{version}}
@@ -66,10 +66,18 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GHCR_PASSWORD }}
 
+      - name: Release version
+        id: release_version
+        run: |
+          app_version=$(grep version package.json | sed -e 's/\s*"version":\s"\(.*\)",/\1/g')
+          echo "app_version=$app_version" >> $GITHUB_ENV
+
       - name: Build image
         uses: docker/build-push-action@v3
         with:
-          tags: ${{ github.event.inputs.tags || steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.app_version }}
+            latest
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
