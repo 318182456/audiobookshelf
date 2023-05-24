@@ -76,8 +76,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           tags: |
-            ${{ env.app_version }}
-            latest
+             ${{ secrets.DOCKER_USERNAME }}/audiobookshelf:latest
+             ${{ secrets.DOCKER_USERNAME }}/audiobookshelf:${{ env.app_version }}
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
