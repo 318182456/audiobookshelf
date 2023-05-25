@@ -1,5 +1,6 @@
 const OpenLibrary = require('../providers/OpenLibrary')
 const GoogleBooks = require('../providers/GoogleBooks')
+const XimaLaya = require('../providers/XimaLaya')
 const Audible = require('../providers/Audible')
 const iTunes = require('../providers/iTunes')
 const Audnexus = require('../providers/Audnexus')
@@ -12,13 +13,14 @@ class BookFinder {
   constructor() {
     this.openLibrary = new OpenLibrary()
     this.googleBooks = new GoogleBooks()
+    this.ximalaya = new XimaLaya()
     this.audible = new Audible()
     this.iTunesApi = new iTunes()
     this.audnexus = new Audnexus()
     this.fantLab = new FantLab()
     this.audiobookCovers = new AudiobookCovers()
 
-    this.providers = ['google', 'itunes', 'openlibrary', 'fantlab', 'audiobookcovers', 'audible', 'audible.ca', 'audible.uk', 'audible.au', 'audible.fr', 'audible.de', 'audible.jp', 'audible.it', 'audible.in', 'audible.es']
+    this.providers = ['google', 'ximalaya', 'itunes', 'openlibrary', 'fantlab', 'audiobookcovers', 'audible', 'audible.ca', 'audible.uk', 'audible.au', 'audible.fr', 'audible.de', 'audible.jp', 'audible.it', 'audible.in', 'audible.es']
 
     this.verbose = false
   }
@@ -152,6 +154,17 @@ class BookFinder {
     return books
   }
 
+  async getXimaLayaResults(title, author) {
+    var books = await this.ximalaya.search(title)
+    if (this.verbose) Logger.debug(`XimaLaya Book Search Results: ${books.length || 0}`)
+    if (books.errorCode) {
+      Logger.error(`XimaLaya Search Error ${books.errorCode}`)
+      return []
+    }
+    // XimaLaya has good sort
+    return books
+  }
+
   async getFantLabResults(title, author) {
     var books = await this.fantLab.search(title, author)
     if (this.verbose) Logger.debug(`FantLab Book Search Results: ${books.length || 0}`)
@@ -189,6 +202,8 @@ class BookFinder {
 
     if (provider === 'google') {
       books = await this.getGoogleBooksResults(title, author)
+    } else if (provider === 'ximalaya') {
+      books = await this.getXimaLayaResults(title, author)
     } else if (provider.startsWith('audible')) {
       books = await this.getAudibleResults(title, author, asin, provider)
     } else if (provider === 'itunes') {
