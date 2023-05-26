@@ -6,7 +6,7 @@ class XimaLaya {
 
 
 
-  cleanResult(item) {
+  cleanResult(item, author) {
     var { uid, title, customTitle, coverPath, nickname, intro, updatedAt, categoryTitle, richTitle } = item
     var array = ['｜', ' | ', '|']
     var richTitle = richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '')
@@ -23,7 +23,7 @@ class XimaLaya {
       id: uid,
       title: title,
       subtitle: customTitle || null,
-      // author: nickname || null,
+      author: author || null,
       narrator: nickname || null,
       cover: coverPath,
       description: intro,
@@ -47,7 +47,24 @@ class XimaLaya {
       Logger.error('[XimaLaya] Volume search error', error)
       return []
     })
-    return items.map(item => this.cleanResult(item))
+    let author = this.getAuthor(kw)
+    return items.map(item => this.cleanResult(item, author))
+  }
+
+  /**
+   * 取得作者
+   * @param {*} kw 
+   */
+  getAuthor(kw) {
+    if (kw.includes('作者') || kw.includes('原著')) {
+      let list = kw.match(/[\u4e00-\u9fa5]+/g)
+      if (list.findIndex(x => x == '作者') > -1) {
+        return list[list.findIndex(x => x == '作者') + 1]
+      }
+      if (list.findIndex(x => x == '原著') > -1) {
+        return list[list.findIndex(x => x == '原著') + 1]
+      }
+    }
   }
 }
 
