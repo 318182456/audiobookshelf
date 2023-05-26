@@ -21,6 +21,7 @@ class XimaLaya {
     var url = `https://www.ximalaya.com/revision/search/main?core=all&kw=${queryString}`
     Logger.debug(`[XimaLaya] Search url: ${url}`)
     var items = await axios.get(url).then((res) => {
+      Logger.debug(`[XimaLaya] Search result: ${JSON.stringify(res.data)}`)
       if (!res || !res.data || !res.data.album || !res.data.album.docs) return []
       return res.data.album.docs
     }).catch(error => {
