@@ -4,12 +4,24 @@ const Logger = require('../Logger')
 class XimaLaya {
   constructor() { }
 
+
+
   cleanResult(item) {
-    var { uid, title, customTitle, coverPath, nickname, intro, createdAt, categoryTitle, richTitle } = item
+    var { uid, title, customTitle, coverPath, nickname, intro, updatedAt, categoryTitle, richTitle } = item
+    var array = ['｜', ' | ', '|']
+    var richTitle = richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '')
+    array.forEach(item => {
+      if (title.includes(item)) {
+        title = title.split(item)[0]
+      }
+      if (richTitle.includes(item)) {
+        richTitle = richTitle.split(item)[0]
+      }
+    })
 
     return {
       id: uid,
-      title: title.split("｜").split(" | ").split("|")[0],
+      title: title,
       subtitle: customTitle || null,
       // author: nickname || null,
       narrator: nickname || null,
@@ -18,7 +30,7 @@ class XimaLaya {
       publishedYear: new Date(updatedAt)?.getFullYear(),
       genres: categoryTitle,
       series: [{
-        series: richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '').split("｜").split(" | ").split("|")[0],
+        series: richTitle,
         sequence: ""
       }]
     }
