@@ -5,7 +5,7 @@ class XimaLaya {
   constructor() { }
 
   cleanResult(item) {
-    var { uid, title, customTitle, coverPath, nickname, intro, updatedAt, categoryTitle, richTitle } = item
+    var { uid, title, customTitle, coverPath, nickname, intro, createdAt, categoryTitle, richTitle } = item
 
     let series = []
     richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '').split("｜").split(" | ").split("|").forEach(element => {
@@ -22,7 +22,7 @@ class XimaLaya {
       author: nickname || null,
       cover: coverPath,
       description: intro,
-      publishedYear: new Date(updatedAt)?.getFullYear(),
+      publishedYear: new Date(createdAt)?.getFullYear(),
       genres: categoryTitle,
       series: series
     }
