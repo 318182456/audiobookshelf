@@ -8,7 +8,7 @@ class XimaLaya {
     var { uid, title, customTitle, coverPath, nickname, intro, updatedAt, categoryTitle, richTitle } = item
 
     let series = []
-    richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '').split("｜").forEach(element => {
+    richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '').split("｜").split(" | ").split("|").forEach(element => {
       series.push({
         series: element,
         sequence: ""
