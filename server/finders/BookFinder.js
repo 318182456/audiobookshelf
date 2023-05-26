@@ -155,7 +155,14 @@ class BookFinder {
   }
 
   async getXimaLayaResults(title, author) {
-    var books = await this.ximalaya.search(title)
+    let kw = ''
+    if (title) {
+      kw = kw + ' ' + title;
+    }
+    if (author) {
+      kw = kw + ' ' + author;
+    }
+    var books = await this.ximalaya.search(kw)
     if (this.verbose) Logger.debug(`XimaLaya Book Search Results: ${books.length || 0}`)
     if (books.errorCode) {
       Logger.error(`XimaLaya Search Error ${books.errorCode}`)

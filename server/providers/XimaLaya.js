@@ -5,14 +5,26 @@ class XimaLaya {
   constructor() { }
 
   cleanResult(item) {
-    var { playCount, title, customTitle, coverPath, nickname } = item
+    var { uid, title, customTitle, coverPath, nickname, intro, updatedAt, categoryTitle, richTitle } = item
+
+    let series = []
+    richTitle?.replace(/<(S*?)[^>]*>.*?|<.*? \/>/g, '').split("｜").forEach(element => {
+      series.push({
+        series: element,
+        sequence: ""
+      })
+    });
 
     return {
-      playCount,
+      id: uid,
       title,
       subtitle: customTitle || null,
       author: nickname || null,
-      coverPath
+      cover: coverPath,
+      description: intro,
+      publishedYear: new Date(updatedAt)?.getFullYear(),
+      genres: categoryTitle,
+      series: series
     }
   }
 
