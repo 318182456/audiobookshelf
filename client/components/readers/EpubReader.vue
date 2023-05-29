@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full w-full">
+  <div id="epub-reader" class="h-full w-full">
     <div class="h-full flex items-center justify-center">
       <div style="width: 100px; max-width: 100px" class="h-full hidden sm:flex items-center overflow-x-hidden justify-center">
         <span v-if="hasPrev" class="material-icons text-white text-opacity-50 hover:text-opacity-80 cursor-pointer text-6xl" @mousedown.prevent @click="prev">chevron_left</span>
@@ -24,22 +24,31 @@ import ePub from 'epubjs'
  */
 export default {
   props: {
-    url: String,
     libraryItem: {
       type: Object,
       default: () => {}
-    }
+    },
+    playerOpen: Boolean
   },
   data() {
     return {
       windowWidth: 0,
+      windowHeight: 0,
       /** @type {ePub.Book} */
       book: null,
       /** @type {ePub.Rendition} */
       rendition: null
     }
   },
+  watch: {
+    playerOpen() {
+      this.resize()
+    }
+  },
   computed: {
+    userToken() {
+      return this.$store.getters['user/getToken']
+    },
     /** @returns {string} */
     libraryItemId() {
       return this.libraryItem?.id
@@ -64,6 +73,13 @@ export default {
     readerWidth() {
       if (this.windowWidth < 640) return this.windowWidth
       return this.windowWidth - 200
+    },
+    readerHeight() {
+      if (this.windowHeight < 400 || !this.playerOpen) return this.windowHeight
+      return this.windowHeight - 164
+    },
+    epubUrl() {
+      return `/api/items/${this.libraryItemId}/ebook`
     }
   },
   methods: {
@@ -201,22 +217,26 @@ export default {
       const reader = this
 
       /** @type {ePub.Book} */
-      reader.book = new ePub(reader.url, {
+      reader.book = new ePub(reader.epubUrl, {
         width: this.readerWidth,
-        height: window.innerHeight - 50
+        height: this.readerHeight - 50,
+        openAs: 'epub',
+        requestHeaders: {
+          Authorization: `Bearer ${this.userToken}`
+        }
       })
 
       /** @type {ePub.Rendition} */
       reader.rendition = reader.book.renderTo('viewer', {
         width: this.readerWidth,
-        height: window.innerHeight * 0.8
+        height: this.readerHeight * 0.8
       })
 
       // load saved progress
       reader.rendition.display(this.userMediaProgress?.ebookLocation || reader.book.locations.start)
 
       // load style
-      reader.rendition.themes.default({ '*': { color: '#fff!important' } })
+      reader.rendition.themes.default({ '*': { color: '#fff!important', 'background-color': 'rgb(35 35 35)!important' } })
 
       reader.book.ready.then(() => {
         // set up event listeners
@@ -253,17 +273,19 @@ export default {
     },
     resize() {
       this.windowWidth = window.innerWidth
-      this.rendition?.resize(this.readerWidth, window.innerHeight * 0.8)
+      this.windowHeight = window.innerHeight
+      this.rendition?.resize(this.readerWidth, this.readerHeight * 0.8)
     }
+  },
+  mounted() {
+    this.windowWidth = window.innerWidth
+    this.windowHeight = window.innerHeight
+    window.addEventListener('resize', this.resize)
+    this.initEpub()
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.resize)
     this.book?.destroy()
-  },
-  mounted() {
-    this.windowWidth = window.innerWidth
-    window.addEventListener('resize', this.resize)
-    this.initEpub()
   }
 }
 </script>

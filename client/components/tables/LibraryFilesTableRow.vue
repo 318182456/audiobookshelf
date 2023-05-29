@@ -45,7 +45,7 @@ export default {
       return this.$store.getters['user/getIsAdminOrUp']
     },
     downloadUrl() {
-      return `${process.env.serverUrl}/s/item/${this.libraryItemId}/${this.$encodeUriPath(this.file.metadata.relPath).replace(/^\//, '')}?token=${this.userToken}`
+      return `${process.env.serverUrl}/api/items/${this.libraryItemId}/file/${this.file.ino}/download?token=${this.userToken}`
     },
     contextMenuItems() {
       const items = []
@@ -102,15 +102,7 @@ export default {
       this.$store.commit('globals/setConfirmPrompt', payload)
     },
     downloadLibraryFile() {
-      const a = document.createElement('a')
-      a.style.display = 'none'
-      a.href = this.downloadUrl
-      a.download = this.file.metadata.filename
-      document.body.appendChild(a)
-      a.click()
-      setTimeout(() => {
-        a.remove()
-      })
+      this.$downloadFile(this.downloadUrl, this.file.metadata.filename)
     }
   },
   mounted() {}

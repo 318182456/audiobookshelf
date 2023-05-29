@@ -8,6 +8,7 @@ const { removeFile, downloadFile } = require('../utils/fileUtils')
 const filePerms = require('../utils/filePerms')
 const { levenshteinDistance } = require('../utils/index')
 const opmlParser = require('../utils/parsers/parseOPML')
+const opmlGenerator = require('../utils/generators/opmlGenerator')
 const prober = require('../utils/prober')
 const ffmpegHelpers = require('../utils/ffmpegHelpers')
 
@@ -78,11 +79,18 @@ class PodcastManager {
       libraryId: podcastEpisodeDownload.libraryId,
       libraryItemId: podcastEpisodeDownload.libraryItemId,
     }
-    task.setData('download-podcast-episode', 'Downloading Episode', taskDescription, taskData)
+    task.setData('download-podcast-episode', 'Downloading Episode', taskDescription, false, taskData)
     this.taskManager.addTask(task)
 
     SocketAuthority.emitter('episode_download_started', podcastEpisodeDownload.toJSONForClient())
     this.currentDownload = podcastEpisodeDownload
+
+    // If this file already exists then append the episode id to the filename
+    //  e.g. "/tagesschau 20 Uhr.mp3" becomes "/tagesschau 20 Uhr (ep_asdfasdf).mp3"
+    //  this handles podcasts where every title is the same (ref https://github.com/advplyr/audiobookshelf/issues/1802)
+    if (await fs.pathExists(this.currentDownload.targetPath)) {
+      this.currentDownload.appendEpisodeId = true
+    }
 
     // Ignores all added files to this dir
     this.watcher.addIgnoreDir(this.currentDownload.libraryItem.path)
@@ -140,8 +148,6 @@ class PodcastManager {
   async scanAddPodcastEpisodeAudioFile() {
     const libraryFile = await this.getLibraryFile(this.currentDownload.targetPath, this.currentDownload.targetRelPath)
 
-    // TODO: Set meta tags on new audio file
-
     const audioFile = await this.probeAudioFile(libraryFile)
     if (!audioFile) {
       return false
@@ -178,6 +184,9 @@ class PodcastManager {
     libraryItem.updatedAt = Date.now()
     await this.db.updateLibraryItem(libraryItem)
     SocketAuthority.emitter('item_updated', libraryItem.toJSONExpanded())
+    const podcastEpisodeExpanded = podcastEpisode.toJSONExpanded()
+    podcastEpisodeExpanded.libraryItem = libraryItem.toJSONExpanded()
+    SocketAuthority.emitter('episode_added', podcastEpisodeExpanded)
 
     if (this.currentDownload.isAutoDownload) { // Notifications only for auto downloaded episodes
       this.notificationManager.onPodcastEpisodeDownloaded(libraryItem, podcastEpisode)
@@ -363,6 +372,10 @@ class PodcastManager {
     return {
       feeds: rssFeedData
     }
+  }
+
+  generateOPMLFileText(libraryItems) {
+    return opmlGenerator.generate(libraryItems)
   }
 
   getDownloadQueueDetails(libraryId = null) {

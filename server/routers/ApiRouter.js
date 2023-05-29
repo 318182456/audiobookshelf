@@ -90,12 +90,17 @@ class ApiRouter {
     this.router.get('/libraries/:id/matchall', LibraryController.middleware.bind(this), LibraryController.matchAll.bind(this))
     this.router.post('/libraries/:id/scan', LibraryController.middleware.bind(this), LibraryController.scan.bind(this))
     this.router.get('/libraries/:id/recent-episodes', LibraryController.middleware.bind(this), LibraryController.getRecentEpisodes.bind(this))
-
+    this.router.get('/libraries/:id/opml', LibraryController.middleware.bind(this), LibraryController.getOPMLFile.bind(this))
     this.router.post('/libraries/order', LibraryController.reorder.bind(this))
 
     //
     // Item Routes
     //
+    this.router.post('/items/batch/delete', LibraryItemController.batchDelete.bind(this))
+    this.router.post('/items/batch/update', LibraryItemController.batchUpdate.bind(this))
+    this.router.post('/items/batch/get', LibraryItemController.batchGet.bind(this))
+    this.router.post('/items/batch/quickmatch', LibraryItemController.batchQuickMatch.bind(this))
+    this.router.post('/items/batch/scan', LibraryItemController.batchScan.bind(this))
     this.router.delete('/items/all', LibraryItemController.deleteAll.bind(this))
 
     this.router.get('/items/:id', LibraryItemController.middleware.bind(this), LibraryItemController.findOne.bind(this))
@@ -115,12 +120,10 @@ class ApiRouter {
     this.router.get('/items/:id/tone-object', LibraryItemController.middleware.bind(this), LibraryItemController.getToneMetadataObject.bind(this))
     this.router.post('/items/:id/chapters', LibraryItemController.middleware.bind(this), LibraryItemController.updateMediaChapters.bind(this))
     this.router.post('/items/:id/tone-scan/:index?', LibraryItemController.middleware.bind(this), LibraryItemController.toneScan.bind(this))
-    this.router.delete('/items/:id/file/:ino', LibraryItemController.middleware.bind(this), LibraryItemController.deleteLibraryFile.bind(this))
-
-    this.router.post('/items/batch/delete', LibraryItemController.batchDelete.bind(this))
-    this.router.post('/items/batch/update', LibraryItemController.batchUpdate.bind(this))
-    this.router.post('/items/batch/get', LibraryItemController.batchGet.bind(this))
-    this.router.post('/items/batch/quickmatch', LibraryItemController.batchQuickMatch.bind(this))
+    this.router.get('/items/:id/file/:fileid', LibraryItemController.middleware.bind(this), LibraryItemController.getLibraryFile.bind(this))
+    this.router.delete('/items/:id/file/:fileid', LibraryItemController.middleware.bind(this), LibraryItemController.deleteLibraryFile.bind(this))
+    this.router.get('/items/:id/file/:fileid/download', LibraryItemController.middleware.bind(this), LibraryItemController.downloadLibraryFile.bind(this))
+    this.router.get('/items/:id/ebook', LibraryItemController.middleware.bind(this), LibraryItemController.getEBookFile.bind(this))
 
     //
     // User Routes
@@ -197,6 +200,7 @@ class ApiRouter {
     // File System Routes
     //
     this.router.get('/filesystem', FileSystemController.getPaths.bind(this))
+    this.router.post('/filesystem/pathexists', FileSystemController.checkPathExists.bind(this))
 
     //
     // Author Routes
@@ -232,7 +236,7 @@ class ApiRouter {
     //
     this.router.post('/podcasts', PodcastController.create.bind(this))
     this.router.post('/podcasts/feed', PodcastController.getPodcastFeed.bind(this))
-    this.router.post('/podcasts/opml', PodcastController.getOPMLFeeds.bind(this))
+    this.router.post('/podcasts/opml', PodcastController.getFeedsFromOPMLText.bind(this))
     this.router.get('/podcasts/:id/checknew', PodcastController.middleware.bind(this), PodcastController.checkNewEpisodes.bind(this))
     this.router.get('/podcasts/:id/downloads', PodcastController.middleware.bind(this), PodcastController.getEpisodeDownloads.bind(this))
     this.router.get('/podcasts/:id/clear-queue', PodcastController.middleware.bind(this), PodcastController.clearEpisodeDownloadQueue.bind(this))

@@ -256,14 +256,14 @@ export default {
     },
     booksInSeries() {
       // Only added to item object when collapseSeries is enabled
-      return this.collapsedSeries ? this.collapsedSeries.numBooks : 0
+      return this.collapsedSeries?.numBooks || 0
     },
     seriesSequenceList() {
-      return this.collapsedSeries ? this.collapsedSeries.seriesSequenceList : null
+      return this.collapsedSeries?.seriesSequenceList || null
     },
     libraryItemIdsInSeries() {
       // Only added to item object when collapseSeries is enabled
-      return this.collapsedSeries ? this.collapsedSeries.libraryItemIds || [] : []
+      return this.collapsedSeries?.libraryItemIds || []
     },
     hasCover() {
       return !!this.media.coverPath
@@ -328,6 +328,9 @@ export default {
       if (this.isMusic) return null
       if (this.episodeProgress) return this.episodeProgress
       return this.store.getters['user/getUserMediaProgress'](this.libraryItemId)
+    },
+    isEBookOnly() {
+      return !this.numTracks && this.ebookFormat
     },
     useEBookProgress() {
       if (!this.userProgress || this.userProgress.progress) return false
@@ -445,6 +448,7 @@ export default {
           }
         ]
         if (this.continueListeningShelf) {
+
           items.push({
             func: 'removeFromContinueListening',
             text: this.$strings.ButtonRemoveFromContinueListening
@@ -512,7 +516,7 @@ export default {
       if (this.continueListeningShelf) {
         items.push({
           func: 'removeFromContinueListening',
-          text: this.$strings.ButtonRemoveFromContinueListening
+          text: this.isEBookOnly ? this.$strings.ButtonRemoveFromContinueReading : this.$strings.ButtonRemoveFromContinueListening
         })
       }
       if (!this.isPodcast) {

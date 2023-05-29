@@ -1,3 +1,4 @@
+const Path = require('path')
 const fs = require('../libs/fsExtra')
 const Logger = require('../Logger')
 const SocketAuthority = require('../SocketAuthority')
@@ -5,6 +6,7 @@ const SocketAuthority = require('../SocketAuthority')
 const zipHelpers = require('../utils/zipHelpers')
 const { reqSupportsWebp, isNullOrNaN } = require('../utils/index')
 const { ScanResult } = require('../utils/constants')
+const { getAudioMimeTypeFromExtname } = require('../utils/fileUtils')
 
 class LibraryItemController {
   constructor() { }
@@ -379,20 +381,23 @@ class LibraryItemController {
       return res.sendStatus(403)
     }
 
-    var itemsUpdated = 0
-    var itemsUnmatched = 0
+    let itemsUpdated = 0
+    let itemsUnmatched = 0
 
-    var matchData = req.body
-    var options = matchData.options || {}
-    var items = matchData.libraryItemIds
-    if (!items || !items.length) {
-      return res.sendStatus(500)
+    const options = req.body.options || {}
+    if (!req.body.libraryItemIds?.length) {
+      return res.sendStatus(400)
     }
+
+    const libraryItems = req.body.libraryItemIds.map(lid => this.db.getLibraryItem(lid)).filter(li => li)
+    if (!libraryItems?.length) {
+      return res.sendStatus(400)
+    }
+
     res.sendStatus(200)
 
-    for (let i = 0; i < items.length; i++) {
-      var libraryItem = this.db.libraryItems.find(_li => _li.id === items[i])
-      var matchResult = await this.scanner.quickMatchLibraryItem(libraryItem, options)
+    for (const libraryItem of libraryItems) {
+      const matchResult = await this.scanner.quickMatchLibraryItem(libraryItem, options)
       if (matchResult.updated) {
         itemsUpdated++
       } else if (matchResult.warning) {
@@ -400,12 +405,39 @@ class LibraryItemController {
       }
     }
 
-    var result = {
+    const result = {
       success: itemsUpdated > 0,
       updates: itemsUpdated,
       unmatched: itemsUnmatched
     }
     SocketAuthority.clientEmitter(req.user.id, 'batch_quickmatch_complete', result)
+  }
+
+  // POST: api/items/batch/scan
+  async batchScan(req, res) {
+    if (!req.user.isAdminOrUp) {
+      Logger.warn('User other than admin attempted to batch scan library items', req.user)
+      return res.sendStatus(403)
+    }
+
+    if (!req.body.libraryItemIds?.length) {
+      return res.sendStatus(400)
+    }
+
+    const libraryItems = req.body.libraryItemIds.map(lid => this.db.getLibraryItem(lid)).filter(li => li)
+    if (!libraryItems?.length) {
+      return res.sendStatus(400)
+    }
+
+    res.sendStatus(200)
+
+    for (const libraryItem of libraryItems) {
+      if (libraryItem.isFile) {
+        Logger.warn(`[LibraryItemController] Re-scanning file library items not yet supported`)
+      } else {
+        await this.scanner.scanLibraryItemByRequest(libraryItem)
+      }
+    }
   }
 
   // DELETE: api/items/all
@@ -432,7 +464,7 @@ class LibraryItemController {
       return res.sendStatus(500)
     }
 
-    var result = await this.scanner.scanLibraryItemById(req.libraryItem.id)
+    const result = await this.scanner.scanLibraryItemByRequest(req.libraryItem)
     res.json({
       result: Object.keys(ScanResult).find(key => ScanResult[key] == result)
     })
@@ -498,19 +530,45 @@ class LibraryItemController {
     res.json(toneData)
   }
 
-  async deleteLibraryFile(req, res) {
-    const libraryFile = req.libraryItem.libraryFiles.find(lf => lf.ino === req.params.ino)
-    if (!libraryFile) {
-      Logger.error(`[LibraryItemController] Unable to delete library file. Not found. "${req.params.ino}"`)
-      return res.sendStatus(404)
+  /**
+   * GET api/items/:id/file/:fileid
+   * 
+   * @param {express.Request} req
+   * @param {express.Response} res 
+   */
+  async getLibraryFile(req, res) {
+    const libraryFile = req.libraryFile
+
+    if (global.XAccel) {
+      Logger.debug(`Use X-Accel to serve static file ${libraryFile.metadata.path}`)
+      return res.status(204).header({ 'X-Accel-Redirect': global.XAccel + libraryFile.metadata.path }).send()
     }
+
+    // Express does not set the correct mimetype for m4b files so use our defined mimetypes if available
+    const audioMimeType = getAudioMimeTypeFromExtname(Path.extname(libraryFile.metadata.path))
+    if (audioMimeType) {
+      res.setHeader('Content-Type', audioMimeType)
+    }
+    res.sendFile(libraryFile.metadata.path)
+  }
+
+  /**
+   * DELETE api/items/:id/file/:fileid
+   * 
+   * @param {express.Request} req
+   * @param {express.Response} res 
+   */
+  async deleteLibraryFile(req, res) {
+    const libraryFile = req.libraryFile
+
+    Logger.info(`[LibraryItemController] User "${req.user.username}" requested file delete at "${libraryFile.metadata.path}"`)
 
     await fs.remove(libraryFile.metadata.path).catch((error) => {
       Logger.error(`[LibraryItemController] Failed to delete library file at "${libraryFile.metadata.path}"`, error)
     })
-    req.libraryItem.removeLibraryFile(req.params.ino)
+    req.libraryItem.removeLibraryFile(req.params.fileid)
 
-    if (req.libraryItem.media.removeFileWithInode(req.params.ino)) {
+    if (req.libraryItem.media.removeFileWithInode(req.params.fileid)) {
       // If book has no more media files then mark it as missing
       if (req.libraryItem.mediaType === 'book' && !req.libraryItem.media.hasMediaEntities) {
         req.libraryItem.setMissing()
@@ -522,13 +580,74 @@ class LibraryItemController {
     res.sendStatus(200)
   }
 
+  /**
+   * GET api/items/:id/file/:fileid/download
+   * Same as GET api/items/:id/file/:fileid but allows logging and restricting downloads
+   * @param {express.Request} req
+   * @param {express.Response} res 
+   */
+  async downloadLibraryFile(req, res) {
+    const libraryFile = req.libraryFile
+
+    if (!req.user.canDownload) {
+      Logger.error(`[LibraryItemController] User without download permission attempted to download file "${libraryFile.metadata.path}"`, req.user)
+      return res.sendStatus(403)
+    }
+
+    Logger.info(`[LibraryItemController] User "${req.user.username}" requested file download at "${libraryFile.metadata.path}"`)
+
+    if (global.XAccel) {
+      Logger.debug(`Use X-Accel to serve static file ${libraryFile.metadata.path}`)
+      return res.status(204).header({ 'X-Accel-Redirect': global.XAccel + libraryFile.metadata.path }).send()
+    }
+
+    // Express does not set the correct mimetype for m4b files so use our defined mimetypes if available
+    const audioMimeType = getAudioMimeTypeFromExtname(Path.extname(libraryFile.metadata.path))
+    if (audioMimeType) {
+      res.setHeader('Content-Type', audioMimeType)
+    }
+
+    res.download(libraryFile.metadata.path, libraryFile.metadata.filename)
+  }
+
+  /**
+   * GET api/items/:id/ebook
+   * 
+   * @param {express.Request} req
+   * @param {express.Response} res 
+   */
+  async getEBookFile(req, res) {
+    const ebookFile = req.libraryItem.media.ebookFile
+    if (!ebookFile) {
+      Logger.error(`[LibraryItemController] No ebookFile for library item "${req.libraryItem.media.metadata.title}"`)
+      return res.sendStatus(404)
+    }
+    const ebookFilePath = ebookFile.metadata.path
+
+    if (global.XAccel) {
+      Logger.debug(`Use X-Accel to serve static file ${ebookFilePath}`)
+      return res.status(204).header({ 'X-Accel-Redirect': global.XAccel + ebookFilePath }).send()
+    }
+
+    res.sendFile(ebookFilePath)
+  }
+
   middleware(req, res, next) {
-    const item = this.db.libraryItems.find(li => li.id === req.params.id)
-    if (!item || !item.media) return res.sendStatus(404)
+    req.libraryItem = this.db.libraryItems.find(li => li.id === req.params.id)
+    if (!req.libraryItem?.media) return res.sendStatus(404)
 
     // Check user can access this library item
-    if (!req.user.checkCanAccessLibraryItem(item)) {
+    if (!req.user.checkCanAccessLibraryItem(req.libraryItem)) {
       return res.sendStatus(403)
+    }
+
+    // For library file routes, get the library file
+    if (req.params.fileid) {
+      req.libraryFile = req.libraryItem.libraryFiles.find(lf => lf.ino === req.params.fileid)
+      if (!req.libraryFile) {
+        Logger.error(`[LibraryItemController] Library file "${req.params.fileid}" does not exist for library item`)
+        return res.sendStatus(404)
+      }
     }
 
     if (req.path.includes('/play')) {
@@ -541,7 +660,6 @@ class LibraryItemController {
       return res.sendStatus(403)
     }
 
-    req.libraryItem = item
     next()
   }
 }

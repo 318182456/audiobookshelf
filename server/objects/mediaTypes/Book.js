@@ -4,7 +4,7 @@ const BookMetadata = require('../metadata/BookMetadata')
 const { areEquivalent, copyValue, cleanStringForSearch } = require('../../utils/index')
 const { parseOpfMetadataXML } = require('../../utils/parsers/parseOpfMetadata')
 const { parseOverdriveMediaMarkersAsChapters } = require('../../utils/parsers/parseOverdriveMediaMarkers')
-const abmetadataGenerator = require('../../utils/abmetadataGenerator')
+const abmetadataGenerator = require('../../utils/generators/abmetadataGenerator')
 const { readTextFile, filePathToPOSIX } = require('../../utils/fileUtils')
 const AudioFile = require('../files/AudioFile')
 const AudioTrack = require('../files/AudioTrack')
@@ -141,6 +141,9 @@ class Book {
   }
   get numTracks() {
     return this.tracks.length
+  }
+  get isEBookOnly() {
+    return this.ebookFile && !this.numTracks
   }
 
   update(payload) {

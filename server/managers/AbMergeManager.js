@@ -46,7 +46,7 @@ class AbMergeManager {
       toneJsonObject: null
     }
     const taskDescription = `Encoding audiobook "${libraryItem.media.metadata.title}" into a single m4b file.`
-    task.setData('encode-m4b', 'Encoding M4b', taskDescription, taskData)
+    task.setData('encode-m4b', 'Encoding M4b', taskDescription, false, taskData)
     this.taskManager.addTask(task)
     Logger.info(`Start m4b encode for ${libraryItem.id} - TaskId: ${task.id}`)
 
@@ -112,7 +112,7 @@ class AbMergeManager {
     let toneJsonPath = null
     try {
       toneJsonPath = Path.join(task.data.itemCachePath, 'metadata.json')
-      await toneHelpers.writeToneMetadataJsonFile(libraryItem, libraryItem.media.chapters, toneJsonPath, 1)
+      await toneHelpers.writeToneMetadataJsonFile(libraryItem, libraryItem.media.chapters, toneJsonPath, 1, 'audio/mp4')
     } catch (error) {
       Logger.error(`[AbMergeManager] Write metadata.json failed`, error)
       toneJsonPath = null
